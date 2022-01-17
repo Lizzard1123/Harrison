@@ -1,0 +1,14 @@
+#include "custom/global.h"
+
+// motors
+Motor FrontLeft(14, E_MOTOR_GEARSET_18, false, E_MOTOR_ENCODER_DEGREES);
+Motor FrontRight(15, E_MOTOR_GEARSET_18, true, E_MOTOR_ENCODER_DEGREES);
+Motor BackLeft1(18, E_MOTOR_GEARSET_18, false, E_MOTOR_ENCODER_DEGREES);
+Motor BackLeft2(20, E_MOTOR_GEARSET_18, false, E_MOTOR_ENCODER_DEGREES);
+Motor BackRight1(17, E_MOTOR_GEARSET_18, true, E_MOTOR_ENCODER_DEGREES); 
+Motor BackRight2(19, E_MOTOR_GEARSET_18, true, E_MOTOR_ENCODER_DEGREES); 
+Motor RightLift(2, E_MOTOR_GEARSET_36, false, E_MOTOR_ENCODER_DEGREES); 
+Motor LeftLift(1, E_MOTOR_GEARSET_36, true, E_MOTOR_ENCODER_DEGREES); 
+
+// controllers
+Controller master(E_CONTROLLER_MASTER);

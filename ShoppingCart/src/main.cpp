@@ -1,92 +1,203 @@
-#include "main.h"
+#include "custom/global.h"
 
-/**
- * A callback function for LLEMU's center button.
- *
- * When this callback is fired, it will toggle line 2 of the LCD text between
- * "I was pressed!" and nothing.
- */
-void on_center_button() {
-	static bool pressed = false;
-	pressed = !pressed;
-	if (pressed) {
-		pros::lcd::set_text(2, "I was pressed!");
-	} else {
-		pros::lcd::clear_line(2);
-	}
-}
-
-/**
- * Runs initialization code. This occurs as soon as the program is started.
- *
- * All other competition modes are blocked by initialize; it is recommended
- * to keep execution time for this mode under a few seconds.
- */
 void initialize() {
-	pros::lcd::initialize();
-	pros::lcd::set_text(1, "Hello PROS User!");
-
-	pros::lcd::register_btn1_cb(on_center_button);
+    RightLift.set_brake_mode(E_MOTOR_BRAKE_HOLD);
+    LeftLift.set_brake_mode(E_MOTOR_BRAKE_HOLD);
 }
-
-/**
- * Runs while the robot is in the disabled state of Field Management System or
- * the VEX Competition Switch, following either autonomous or opcontrol. When
- * the robot is enabled, this task will exit.
- */
 void disabled() {}
-
-/**
- * Runs after initialize(), and before autonomous when connected to the Field
- * Management System or the VEX Competition Switch. This is intended for
- * competition-specific initialization routines, such as an autonomous selector
- * on the LCD.
- *
- * This task will exit when the robot is enabled and autonomous or opcontrol
- * starts.
- */
 void competition_initialize() {}
 
-/**
- * Runs the user autonomous code. This function will be started in its own task
- * with the default priority and stack size whenever the robot is enabled via
- * the Field Management System or the VEX Competition Switch in the autonomous
- * mode. Alternatively, this function may be called in initialize or opcontrol
- * for non-competition testing purposes.
- *
- * If the robot is disabled or communications is lost, the autonomous task
- * will be stopped. Re-enabling the robot will restart the task, not re-start it
- * from where it left off.
- */
-void autonomous() {}
 
-/**
- * Runs the operator control code. This function will be started in its own task
- * with the default priority and stack size whenever the robot is enabled via
- * the Field Management System or the VEX Competition Switch in the operator
- * control mode.
- *
- * If no competition control is connected, this function will run immediately
- * following initialize().
- *
- * If the robot is disabled or communications is lost, the
- * operator control task will be stopped. Re-enabling the robot will restart the
- * task, not resume it from where it left off.
- */
+double toRPM(bool reverse, double speed, int gear) {
+  int check     = (reverse) ? -1 : 1;
+  int gearRatio = 10;
+  switch (gear) {
+  case E_MOTOR_GEARSET_36:
+    gearRatio = 100;
+    break;
+  case E_MOTOR_GEARSET_18:
+    gearRatio = 200;
+    break;
+  case E_MOTOR_GEARSET_06:
+    gearRatio = 600;
+    break;
+  }
+  return check * (speed / 100) * gearRatio;
+}
+
+
+//AUTON
+
+bool recording = true;
+bool ready = false;
+int dataSize = 0;
+//skills
+const int dataLength = 3500;
+const int segmentLength = 16;
+double replayData[dataLength][segmentLength]; //16 should stay 3500 should be a lil lower and = to dataSize
+/*
+0 - LX joystick
+1 - LY joystick
+2 - RX joystick
+3 - RY joystick
+
+4 - upArrow (0 nothing, 1 trigger)
+5 - rightArrow (0 nothing, 1 trigger)
+6 - downArrow (0 nothing, 1 trigger)
+7 - leftArrow (0 nothing, 1 trigger)
+
+8 - X (0 nothing, 1 trigger)
+9 - A (0 nothing, 1 trigger)
+10 - B (0 nothing, 1 trigger)
+11 - Y (0 nothing, 1 trigger)
+
+12 - L1 (0 nothing, 1 trigger)
+13 - L2 (0 nothing, 1 trigger)
+14 - R1 (0 nothing, 1 trigger)
+15 - R2 (0 nothing, 1 trigger)
+*/
+
+void fillEmpty(){ //set all to 0
+    printf("attempting to fill array \n");
+    if(!ready){
+        for(int i = 0; i < dataLength; i++){
+            for(int j = 0; j < segmentLength; j++){
+                replayData[i][j] = 0;
+            }
+        }
+    }
+    ready = true;
+}
+
+void setData(int num, double val){
+    if(recording && !ready){
+        fillEmpty();
+    } 
+    if(recording){
+        replayData[dataSize][num] = val;
+    }
+}
+
+void finalizeData(){
+    if(recording){
+        dataSize++;
+        printf("Filling data line: %f\n", dataSize);
+    }
+}
+
+void printData(){
+    printf("Printing Data\n");
+    recording = false;
+    printf("{");
+    for(int i = 0; i < dataLength; i++){ //every segment
+    printf("{");
+        for(int j = 0; j < segmentLength; j++){ //every input
+            printf("%f,", replayData[i][j]);
+        }
+    printf("},\n");
+    }
+    printf("}\n");
+}
+
+void runSegment(int line){
+
+	int forward = replayData[line][3];
+    int sideways = replayData[line][2];
+    int Turn = replayData[line][0];
+
+	FrontRight.move_velocity(toRPM(false, forward - sideways + Turn, FrontRight.get_gearing()));//.spin(vex::forward, forward - sideways + Turn, percent); // driver controls
+    FrontLeft.move_velocity(toRPM(false, forward + sideways - Turn, FrontLeft.get_gearing())); //spin(vex::forward, forward + sideways - Turn, percent);
+    BackRight1.move_velocity(toRPM(false, forward + sideways + Turn, BackRight1.get_gearing()));//.spin(vex::forward, forward + sideways + Turn, percent);
+    BackLeft1.move_velocity(toRPM(false, forward - sideways - Turn, BackLeft1.get_gearing()));//.spin(vex::forward, forward - sideways - Turn, percent);
+    BackRight2.move_velocity(toRPM(false, forward + sideways + Turn, BackRight2.get_gearing()));//.spin(vex::forward, forward + sideways + Turn, percent);
+    BackLeft2.move_velocity(toRPM(false, forward - sideways - Turn, BackLeft2.get_gearing()));//.spin(vex::forward, forward - sideways - Turn, percent);
+
+    if (replayData[line][4]) { // operate front arm
+      RightLift.move_velocity(toRPM(false, 100, RightLift.get_gearing()));//.spin(vex::forward, 100, percent);
+      LeftLift.move_velocity(toRPM(false, 100, LeftLift.get_gearing()));//.spin(vex::forward, 100, percent);
+    } else if (replayData[line][6]) {
+      RightLift.move_velocity(toRPM(true, 100, RightLift.get_gearing()));//.spin(vex::forward, 100, percent);
+      LeftLift.move_velocity(toRPM(true, 100, LeftLift.get_gearing()));//.spin(vex::forward, 100, percent);
+    } else {
+      RightLift.move_velocity(0);
+      LeftLift.move_velocity(0);
+    }	
+}
+
+void executeSkillsData(){
+    printf("Executing Skills Data");
+    for(int i = 0; i < dataLength; i++){
+       runSegment(i); //similate inputs 
+       delay(20); // NEEDS to be the same as driver collected replayData
+    }
+}
+
+bool isRecording(){
+  return recording;
+}
+
+void setRecording(bool val){
+  recording = val;
+}
+
+void autonomous() {
+	executeSkillsData();
+}
+
+/*
+
+END AUTON 
+
+*/
+  
+void endRecoringTask(void*) {
+    printf("starting end timer\n");
+    delay(60000);
+    printf("Triggering end\n");
+    printData();
+}
+
 void opcontrol() {
-	pros::Controller master(pros::E_CONTROLLER_MASTER);
-	pros::Motor left_mtr(1);
-	pros::Motor right_mtr(2);
-
 	while (true) {
-		pros::lcd::print(0, "%d %d %d", (pros::lcd::read_buttons() & LCD_BTN_LEFT) >> 2,
-		                 (pros::lcd::read_buttons() & LCD_BTN_CENTER) >> 1,
-		                 (pros::lcd::read_buttons() & LCD_BTN_RIGHT) >> 0);
-		int left = master.get_analog(ANALOG_LEFT_Y);
-		int right = master.get_analog(ANALOG_RIGHT_Y);
+		if(master.get_digital(DIGITAL_L1) && master.get_digital(DIGITAL_R1)){
+            printf("Starting recording\n");
+            setRecording(true);
+            fillEmpty();
+            for(int i = 5; i > 0; i--){
+                master.print(1, 8, "start: " + i);
+            }
+            master.print(1, 8, "RECORDING");
+            Task countdown(endRecoringTask);
+        }
+    	int forward = -(master.get_analog(E_CONTROLLER_ANALOG_RIGHT_Y)) / 127; //-Controller1.Axis2.position(percent);
+    	int sideways = master.get_analog(E_CONTROLLER_ANALOG_RIGHT_X) / 127; //Controller1.Axis1.position(percent);
+    	int Turn = master.get_analog(E_CONTROLLER_ANALOG_LEFT_X) / 127;
 
-		left_mtr = left;
-		right_mtr = right;
-		pros::delay(20);
+        setData(3, forward);
+        setData(2, sideways);
+        setData(0, Turn);
+
+    	FrontRight.move_velocity(toRPM(false, forward - sideways + Turn, FrontRight.get_gearing()));//.spin(vex::forward, forward - sideways + Turn, percent); // driver controls
+    	FrontLeft.move_velocity(toRPM(false, forward + sideways - Turn, FrontLeft.get_gearing())); //spin(vex::forward, forward + sideways - Turn, percent);
+    	BackRight1.move_velocity(toRPM(false, forward + sideways + Turn, BackRight1.get_gearing()));//.spin(vex::forward, forward + sideways + Turn, percent);
+    	BackLeft1.move_velocity(toRPM(false, forward - sideways - Turn, BackLeft1.get_gearing()));//.spin(vex::forward, forward - sideways - Turn, percent);
+    	BackRight2.move_velocity(toRPM(false, forward + sideways + Turn, BackRight2.get_gearing()));//.spin(vex::forward, forward + sideways + Turn, percent);
+    	BackLeft2.move_velocity(toRPM(false, forward - sideways - Turn, BackLeft2.get_gearing()));//.spin(vex::forward, forward - sideways - Turn, percent);
+
+    	if (master.get_digital(DIGITAL_UP)) { // operate front arm
+        	setData(4, 1);
+    	    RightLift.move_velocity(toRPM(false, 100, RightLift.get_gearing()));//.spin(vex::forward, 100, percent);
+    	    LeftLift.move_velocity(toRPM(false, 100, LeftLift.get_gearing()));//.spin(vex::forward, 100, percent);
+    	} else if (master.get_digital(DIGITAL_DOWN)) {
+        	setData(6, 1);
+    	    RightLift.move_velocity(toRPM(true, 100, RightLift.get_gearing()));//.spin(vex::forward, 100, percent);
+    	    LeftLift.move_velocity(toRPM(true, 100, LeftLift.get_gearing()));//.spin(vex::forward, 100, percent);
+    	} else {
+    	    RightLift.move_velocity(0);
+    	    LeftLift.move_velocity(0);
+    	}
+		
+        finalizeData();
+		delay(20);
 	}
 }
