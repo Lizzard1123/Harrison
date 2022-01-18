@@ -28,11 +28,11 @@ double toRPM(bool reverse, double speed, int gear) {
 
 //AUTON
 
-bool recording = true;
+bool recording = false;
 bool ready = false;
 int dataSize = 0;
 //skills
-const int dataLength = 3500;
+const int dataLength = 600;
 const int segmentLength = 16;
 double replayData[dataLength][segmentLength]; //16 should stay 3500 should be a lil lower and = to dataSize
 /*
@@ -81,7 +81,10 @@ void setData(int num, double val){
 void finalizeData(){
     if(recording){
         dataSize++;
-        printf("Filling data line: %f\n", dataSize);
+        //printf("Filling data line: %f\n", dataSize);
+        if(dataSize == dataLength){
+            printData();
+        }
     }
 }
 
@@ -92,7 +95,12 @@ void printData(){
     for(int i = 0; i < dataLength; i++){ //every segment
     printf("{");
         for(int j = 0; j < segmentLength; j++){ //every input
+        if(j == 15){
+            printf("%f", replayData[i][j]);
+        } else {
             printf("%f,", replayData[i][j]);
+        }
+            delay(10);
         }
     printf("},\n");
     }
@@ -128,7 +136,7 @@ void executeSkillsData(){
     printf("Executing Skills Data");
     for(int i = 0; i < dataLength; i++){
        runSegment(i); //similate inputs 
-       delay(20); // NEEDS to be the same as driver collected replayData
+       delay(100); // NEEDS to be the same as driver collected replayData
     }
 }
 
@@ -149,17 +157,11 @@ void autonomous() {
 END AUTON 
 
 */
-  
-void endRecoringTask(void*) {
-    printf("starting end timer\n");
-    delay(60000);
-    printf("Triggering end\n");
-    printData();
-}
+ 
 
 void opcontrol() {
 	while (true) {
-		if(master.get_digital(DIGITAL_L1) && master.get_digital(DIGITAL_R1)){
+		if(master.get_digital_new_press(DIGITAL_LEFT)){
             printf("Starting recording\n");
             setRecording(true);
             fillEmpty();
@@ -167,7 +169,6 @@ void opcontrol() {
                 master.print(1, 8, "start: " + i);
             }
             master.print(1, 8, "RECORDING");
-            Task countdown(endRecoringTask);
         }
     	int forward = -(master.get_analog(E_CONTROLLER_ANALOG_RIGHT_Y)) / 127; //-Controller1.Axis2.position(percent);
     	int sideways = master.get_analog(E_CONTROLLER_ANALOG_RIGHT_X) / 127; //Controller1.Axis1.position(percent);
@@ -198,6 +199,6 @@ void opcontrol() {
     	}
 		
         finalizeData();
-		delay(20);
+		delay(100);
 	}
 }
