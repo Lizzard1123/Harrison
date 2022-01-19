@@ -78,16 +78,6 @@ void setData(int num, double val){
     }
 }
 
-void finalizeData(){
-    if(recording){
-        dataSize++;
-        //printf("Filling data line: %f\n", dataSize);
-        if(dataSize == dataLength){
-            printData();
-        }
-    }
-}
-
 void printData(){
     printf("Printing Data\n");
     recording = false;
@@ -105,6 +95,16 @@ void printData(){
     printf("},\n");
     }
     printf("}\n");
+}
+
+void finalizeData(){
+    if(recording){
+        dataSize++;
+        //printf("Filling data line: %f\n", dataSize);
+        if(dataSize == dataLength){
+            printData();
+        }
+    }
 }
 
 void runSegment(int line){
